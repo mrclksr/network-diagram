@@ -76,7 +76,6 @@ class Plan:
             self.sort_nodes(node.prev_nodes)
         if node.next_nodes:
             for child in node.next_nodes:
-                child.earliest_start = node.earliest_end
                 self.calculate_forward_from_node(child)
             self.sort_nodes(node.next_nodes)
 
