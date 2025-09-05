@@ -165,7 +165,7 @@ class Plan:
 def create_diagram(plan: Plan):
     for i in range(0, plan.get_depth() + 1):
         for node in plan.get_level_nodes(i):
-            print(f'{i}: {"\t" * i}{node.name}|{node.duration}|{node.earliest_start}|{node.earliest_end}::{node.latest_start}|{node.latest_end} == gp: {node.total_buffer}| fp: {node.free_buffer}|')
+            print(f'{i}: |{"\t" * i}{node.name}|d:{node.duration}|es,ee:{node.earliest_start},{node.earliest_end}|ls,le:{node.latest_start},{node.latest_end}|gp,fp:{node.total_buffer},{node.free_buffer}|')
 
 def parse_table_row(line: str):
     fields = line.split()
