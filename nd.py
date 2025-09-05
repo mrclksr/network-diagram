@@ -14,6 +14,7 @@ class Node:
         self.earliest_end = 0
         self.latest_start = 0
         self.latest_end = 0
+        self.depth = 0
 
     def add_prev_node(self, node):
         if not self.prev_nodes:
@@ -32,15 +33,15 @@ class Plan:
     def __init__(self):
         self.nodes: List[Node] = []
         self.node_id = 0
-        self.root = None
+        self.nodes_per_level = {}
+        self.level_nodes = {}
+        self.max_node_level = 0
 
     def add_node(self, name: str, duration: int, preceding_node_names: List[str]):
         node = self.find_node(name)
         if node:
             return None
         node = self._create_node(name, duration, preceding_node_names)
-        if not self.root:
-            self.root = node
         self.nodes.append(node)
         return node
 
@@ -73,16 +74,16 @@ class Plan:
                     max_earliest_end = parent.earliest_end
             node.earliest_start = max_earliest_end
             node.earliest_end = node.earliest_start + node.duration 
-            self.sort_nodes(node.prev_nodes)
+            #self.sort_nodes(node.prev_nodes)
         if node.next_nodes:
             for child in node.next_nodes:
                 self.calculate_forward_from_node(child)
-            self.sort_nodes(node.next_nodes)
+            #self.sort_nodes(node.next_nodes)
 
     def calculate_forward(self):
         for node in self.nodes:
             self.calculate_forward_from_node(node)
-        self.sort_nodes(self.nodes)
+        #self.sort_nodes(self.nodes)
 
     def sort_nodes(self, nodes):
         nodes.sort(key=lambda node: node.earliest_start)
@@ -120,23 +121,51 @@ class Plan:
             else:
                 node.free_buffer = self.get_min_earliest_start(node.next_nodes) - node.earliest_end
 
+    def calculate_node_depths(self):
+        # Find all starting nodes. That is, nodes without parents.
+        for node in self.nodes:
+            if node.prev_nodes:
+                continue
+            node.depth = 0
+            self.calculate_child_node_depths(node, 1)
 
-def detect_cycle(node: Node):
-    pass
+    def calculate_child_node_depths(self, parent: Node, depth: int) -> int:
+        if not parent.next_nodes:
+            return depth
+        for node in parent.next_nodes:
+            if node.depth < depth:
+                node.depth = depth
+            if self.max_node_level < node.depth:
+                self.max_node_level = node.depth
+            self.calculate_child_node_depths(node, depth + 1)
 
-def display_node(node: Node):
-    print(f'{node.name}|{node.duration}|{node.earliest_start}|{node.earliest_end}::{node.latest_start}|{node.latest_end} == gp: {node.total_buffer}| fp: {node.free_buffer}|')
-    if not node.next_nodes:
-        return
-    for child in node.next_nodes:
-        print(f'{child.name}|{child.duration}|{child.earliest_start}|{child.earliest_end}::{child.latest_start}|{child.latest_end}|== gp: {child.total_buffer}| fp: {child.free_buffer}')
-        display_node(child)
+    def collect_level_nodes(self):
+        for node in self.nodes:
+            list = self.level_nodes.get(node.depth, [])
+            list.append(node)
+            self.level_nodes[node.depth] = list
+            self.nodes_per_level[node.depth] = self.nodes_per_level.get(node.depth, 0) + 1
+
+    def get_level_nodes(self, depth: int) -> List[Node]:
+        return self.level_nodes[depth]
+
+    def get_nodes_per_level(self, depth: int):
+        return self.nodes_per_level.get(depth, 0)
+
+    def get_depth(self):
+        return self.max_node_level
+
+    def build(self):
+        self.calculate_forward()
+        self.calculate_backward()
+        self.calculate_buffers()
+        self.calculate_node_depths()
+        self.collect_level_nodes()
 
 def create_diagram(plan: Plan):
-    display_node(plan.root)
-
-def create_node(name: str, duration: int):
-    pass
+    for i in range(0, plan.get_depth() + 1):
+        for node in plan.get_level_nodes(i):
+            print(f'{i}: {"\t" * i}{node.name}|{node.duration}|{node.earliest_start}|{node.earliest_end}::{node.latest_start}|{node.latest_end} == gp: {node.total_buffer}| fp: {node.free_buffer}|')
 
 def parse_table_row(line: str):
     fields = line.split()
@@ -151,14 +180,12 @@ def create_plan_from_table(file) -> Plan:
     for line in file:
         name, duration, predecessors = parse_table_row(line.strip())
         plan.add_node(name, duration, predecessors)
+    plan.build()
     return plan
 
 def main():
     with open('plan.txt', 'r') as f:
         plan = create_plan_from_table(f)
-        plan.calculate_forward()
-        plan.calculate_backward()
-        plan.calculate_buffers()
         create_diagram(plan)
 
 if __name__ == '__main__':
