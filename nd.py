@@ -53,6 +53,8 @@ class Plan:
         node = self.find_node(name)
         if node:
             raise DiagramError(f'Node "{name}" already defined.')
+        if duration <= 0:
+            raise DiagramError(f'Duration of node {name} <= 0.')
         node = self._create_node(name, duration, preceding_node_names)
         self.nodes.append(node)
         return node
