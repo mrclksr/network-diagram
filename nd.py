@@ -42,6 +42,7 @@ class Node:
 class Plan:
     def __init__(self):
         self.nodes: List[Node] = []
+        self.critical_path_nodes: List[Node] = []
         self.node_id = 0
         self.nodes_per_level = {}
         self.level_nodes = {}
@@ -154,11 +155,21 @@ class Plan:
             self.level_nodes[node.depth] = list
             self.nodes_per_level[node.depth] = self.nodes_per_level.get(node.depth, 0) + 1
 
+    def collect_critical_path_nodes(self):
+        self.critical_path_nodes = []
+        for node in self.nodes:
+            if node.total_buffer == 0:
+                self.critical_path_nodes.append(node)
+        self.critical_path_nodes.sort(key=lambda node: node.depth)
+
     def get_level_nodes(self, depth: int) -> List[Node]:
         return self.level_nodes[depth]
 
     def get_nodes_per_level(self, depth: int):
         return self.nodes_per_level.get(depth, 0)
+
+    def get_critical_path(self):
+        return self.critical_path_nodes
 
     def get_depth(self):
         return self.max_node_level
@@ -169,6 +180,7 @@ class Plan:
         self.calculate_buffers()
         self.calculate_node_depths()
         self.collect_level_nodes()
+        self.collect_critical_path_nodes()
 
 def create_diagram(plan: Plan):
     for i in range(0, plan.get_depth() + 1):
@@ -195,6 +207,9 @@ def main():
     with open('plan.txt', 'r') as f:
         plan = create_plan_from_table(f)
         create_diagram(plan)
+    for node in plan.get_critical_path():
+        print(node.name, end='->')
+    print()
 
 if __name__ == '__main__':
     main()
