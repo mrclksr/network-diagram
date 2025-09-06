@@ -1,6 +1,16 @@
 #!/usr/bin/env python3
 from typing import List
 
+class DiagramError(Exception):
+    """Exception raised for problems with the diagram definition.
+
+    Attributes:
+        message -- explanation of the error
+    """
+    def __init__(self, message):
+        self.message = message
+        super().__init__(self.message)
+
 class Node:
     def __init__(self, name: str, duration: int):
         self.id = 0
@@ -38,9 +48,11 @@ class Plan:
         self.max_node_level = 0
 
     def add_node(self, name: str, duration: int, preceding_node_names: List[str]):
+        if name in preceding_node_names:
+            raise DiagramError(f'Node "{name}" is its own predecessor.')
         node = self.find_node(name)
         if node:
-            return None
+            raise DiagramError(f'Node "{name}" already defined.')
         node = self._create_node(name, duration, preceding_node_names)
         self.nodes.append(node)
         return node
@@ -74,19 +86,13 @@ class Plan:
                     max_earliest_end = parent.earliest_end
             node.earliest_start = max_earliest_end
             node.earliest_end = node.earliest_start + node.duration 
-            #self.sort_nodes(node.prev_nodes)
         if node.next_nodes:
             for child in node.next_nodes:
                 self.calculate_forward_from_node(child)
-            #self.sort_nodes(node.next_nodes)
 
     def calculate_forward(self):
         for node in self.nodes:
             self.calculate_forward_from_node(node)
-        #self.sort_nodes(self.nodes)
-
-    def sort_nodes(self, nodes):
-        nodes.sort(key=lambda node: node.earliest_start)
 
     def calculate_backward(self):
         for node in reversed(self.nodes):
