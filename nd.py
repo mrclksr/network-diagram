@@ -192,7 +192,11 @@ class Plan:
 
 
 def create_label_from_node(node: Node):
-    return f'{node.earliest_start}        {node.earliest_end}\n  {node.name}  \n{node.duration}   {node.total_buffer}   {node.free_buffer}\n{node.latest_start}         {node.latest_end}'
+    return (
+        f'{node.earliest_start:>2} {node.earliest_end:>5}\n{node.name:^}\n'
+        f'{node.duration:>2} {node.total_buffer:>2} {node.free_buffer:>2}\n'
+        f'{node.latest_start:>2} {node.latest_end:>5}'
+    )
 
 
 def draw_diagram(plan: Plan):
@@ -213,7 +217,7 @@ def draw_diagram(plan: Plan):
                 G.add_node(child_node_label, layer=child.depth)
                 G.add_edges_from([(parent_node_label, child_node_label)])
     pos = nx.multipartite_layout(G, subset_key="layer")
-    nx.draw(G, with_labels=True, edge_color=colors, pos=pos,
+    nx.draw(G, with_labels=True, font_family='monospace', edge_color=colors, pos=pos,
             node_size=3500, node_color="skyblue", node_shape="s")
     plt.show()
 
