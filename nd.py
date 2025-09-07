@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 from typing import List
+import networkx as nx
+import matplotlib.pyplot as plt
+
 
 class DiagramError(Exception):
     """Exception raised for problems with the diagram definition.
@@ -7,9 +10,11 @@ class DiagramError(Exception):
     Attributes:
         message -- explanation of the error
     """
+
     def __init__(self, message):
         self.message = message
         super().__init__(self.message)
+
 
 class Node:
     def __init__(self, name: str, duration: int):
@@ -38,6 +43,7 @@ class Node:
 
     def set_id(self, id: int):
         self.id = id
+
 
 class Plan:
     def __init__(self):
@@ -88,7 +94,7 @@ class Plan:
                 if parent.earliest_end > max_earliest_end:
                     max_earliest_end = parent.earliest_end
             node.earliest_start = max_earliest_end
-            node.earliest_end = node.earliest_start + node.duration 
+            node.earliest_end = node.earliest_start + node.duration
         if node.next_nodes:
             for child in node.next_nodes:
                 self.calculate_forward_from_node(child)
@@ -128,7 +134,8 @@ class Plan:
             if not node.next_nodes:
                 node.free_buffer = 0
             else:
-                node.free_buffer = self.get_min_earliest_start(node.next_nodes) - node.earliest_end
+                node.free_buffer = self.get_min_earliest_start(
+                    node.next_nodes) - node.earliest_end
 
     def calculate_node_depths(self):
         # Find all starting nodes. That is, nodes without parents.
@@ -153,7 +160,8 @@ class Plan:
             list = self.level_nodes.get(node.depth, [])
             list.append(node)
             self.level_nodes[node.depth] = list
-            self.nodes_per_level[node.depth] = self.nodes_per_level.get(node.depth, 0) + 1
+            self.nodes_per_level[node.depth] = self.nodes_per_level.get(
+                node.depth, 0) + 1
 
     def collect_critical_path_nodes(self):
         self.critical_path_nodes = []
@@ -182,10 +190,39 @@ class Plan:
         self.collect_level_nodes()
         self.collect_critical_path_nodes()
 
+
+def create_label_from_node(node: Node):
+    return f'{node.earliest_start}        {node.earliest_end}\n  {node.name}  \n{node.duration}   {node.total_buffer}   {node.free_buffer}\n{node.latest_start}         {node.latest_end}'
+
+
+def draw_diagram(plan: Plan):
+    G = nx.DiGraph()
+    colors = []
+    for level in range(0, plan.get_depth()):
+        for node in plan.get_level_nodes(level):
+            parent_node_label = create_label_from_node(node)
+            G.add_node(parent_node_label, layer=node.depth)
+            if not node.next_nodes:
+                continue
+            for child in node.next_nodes:
+                if node.total_buffer == 0 and child.total_buffer == 0:
+                    colors.append('red')
+                else:
+                    colors.append('black')
+                child_node_label = create_label_from_node(child)
+                G.add_node(child_node_label, layer=child.depth)
+                G.add_edges_from([(parent_node_label, child_node_label)])
+    pos = nx.multipartite_layout(G, subset_key="layer")
+    nx.draw(G, with_labels=True, edge_color=colors, pos=pos,
+            node_size=3500, node_color="skyblue", node_shape="s")
+    plt.show()
+
+
 def create_diagram(plan: Plan):
     for i in range(0, plan.get_depth() + 1):
         for node in plan.get_level_nodes(i):
             print(f'{i}: |{"\t" * i}{node.name}|d:{node.duration}|es,ee:{node.earliest_start},{node.earliest_end}|ls,le:{node.latest_start},{node.latest_end}|gp,fp:{node.total_buffer},{node.free_buffer}|')
+
 
 def parse_table_row(line: str):
     fields = line.split()
@@ -195,6 +232,7 @@ def parse_table_row(line: str):
         return fields[0], int(fields[1]), fields[2].split(',')
     return fields[0], int(fields[1]), []
 
+
 def create_plan_from_table(file) -> Plan:
     plan = Plan()
     for line in file:
@@ -203,13 +241,16 @@ def create_plan_from_table(file) -> Plan:
     plan.build()
     return plan
 
+
 def main():
     with open('plan.txt', 'r') as f:
         plan = create_plan_from_table(f)
         create_diagram(plan)
+        draw_diagram(plan)
     for node in plan.get_critical_path():
         print(node.name, end='->')
     print()
+
 
 if __name__ == '__main__':
     main()
