@@ -26,12 +26,12 @@ class Node:
         self.duration = duration
         self.prev_nodes = None
         self.next_nodes = None
-        self.free_buffer = 0
-        self.total_buffer = 0
-        self.earliest_start = 0
-        self.earliest_end = 0
-        self.latest_start = 0
-        self.latest_end = 0
+        self.free_float = 0
+        self.total_float = 0
+        self.early_start_time = 0
+        self.early_finish_time = 0
+        self.late_start_time = 0
+        self.late_finish_time = 0
         self.level = 0
 
     def add_prev_node(self, node):
@@ -87,17 +87,17 @@ class Plan:
         return node
 
     def calculate_forward_from_node(self, node):
-        node.earliest_end = node.earliest_start + node.duration
-        node.earliest_start = 0
+        node.early_finish_time = node.early_start_time + node.duration
+        node.early_start_time = 0
 
         if node.prev_nodes:
-            max_earliest_end = 0
+            max_early_finish_time = 0
             for parent in node.prev_nodes:
-                parent.earliest_end = parent.earliest_start + parent.duration
-                if parent.earliest_end > max_earliest_end:
-                    max_earliest_end = parent.earliest_end
-            node.earliest_start = max_earliest_end
-            node.earliest_end = node.earliest_start + node.duration
+                parent.early_finish_time = parent.early_start_time + parent.duration
+                if parent.early_finish_time > max_early_finish_time:
+                    max_early_finish_time = parent.early_finish_time
+            node.early_start_time = max_early_finish_time
+            node.early_finish_time = node.early_start_time + node.duration
         if node.next_nodes:
             for child in node.next_nodes:
                 self.calculate_forward_from_node(child)
@@ -111,34 +111,34 @@ class Plan:
             self.calculate_backward_from_node(node)
 
     def calculate_backward_from_node(self, node: Node):
-        node.latest_end = node.earliest_end
-        node.latest_start = node.earliest_end - node.duration
+        node.late_finish_time = node.early_finish_time
+        node.late_start_time = node.early_finish_time - node.duration
 
         if node.next_nodes:
-            min_latest_start = node.next_nodes[0].latest_start
+            min_late_start_time = node.next_nodes[0].late_start_time
             for child in node.next_nodes:
-                if min_latest_start > child.latest_start:
-                    min_latest_start = child.latest_start
-            node.latest_end = min_latest_start
-            node.latest_start = node.latest_end - node.duration
+                if min_late_start_time > child.late_start_time:
+                    min_late_start_time = child.late_start_time
+            node.late_finish_time = min_late_start_time
+            node.late_start_time = node.late_finish_time - node.duration
 
-    def get_min_earliest_start(self, nodes):
+    def get_min_early_start_time(self, nodes):
         if not nodes:
             return 0
-        min_start = nodes[0].earliest_start
+        min_start = nodes[0].early_start_time
         for node in nodes:
-            if min_start > node.earliest_start:
-                min_start = node.earliest_start
+            if min_start > node.early_start_time:
+                min_start = node.early_start_time
         return min_start
 
     def calculate_buffers(self):
         for node in self.nodes:
-            node.total_buffer = node.latest_start - node.earliest_start
+            node.total_float = node.late_start_time - node.early_start_time
             if not node.next_nodes:
-                node.free_buffer = 0
+                node.free_float = 0
             else:
-                node.free_buffer = self.get_min_earliest_start(
-                    node.next_nodes) - node.earliest_end
+                node.free_float = self.get_min_early_start_time(
+                    node.next_nodes) - node.early_finish_time
 
     def calculate_node_levels(self):
         # Find all starting nodes. That is, nodes without parents.
@@ -169,7 +169,7 @@ class Plan:
     def collect_critical_path_nodes(self):
         self.critical_path_nodes = []
         for node in self.nodes:
-            if node.total_buffer == 0:
+            if node.total_float == 0:
                 self.critical_path_nodes.append(node)
         self.critical_path_nodes.sort(key=lambda node: node.level)
 
@@ -196,9 +196,9 @@ class Plan:
 
 def create_label_from_node(node: Node):
     return (
-        f'{node.earliest_start:>2} {node.earliest_end:>5}\n{node.name:^}\n'
-        f'{node.duration:>2} {node.total_buffer:>2} {node.free_buffer:>2}\n'
-        f'{node.latest_start:>2} {node.latest_end:>5}'
+        f'{node.early_start_time:>2} {node.early_finish_time:>5}\n{node.name:^}\n'
+        f'{node.duration:>2} {node.total_float:>2} {node.free_float:>2}\n'
+        f'{node.late_start_time:>2} {node.late_finish_time:>5}'
     )
 
 
@@ -211,7 +211,7 @@ def draw_diagram(plan: Plan):
             if not node.next_nodes:
                 continue
             for child in node.next_nodes:
-                if node.total_buffer == 0 and child.total_buffer == 0:
+                if node.total_float == 0 and child.total_float == 0:
                     color = 'red'
                 else:
                     color = 'black'
