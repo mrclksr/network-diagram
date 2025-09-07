@@ -204,7 +204,6 @@ def create_label_from_node(node: Node):
 
 def draw_diagram(plan: Plan):
     G = nx.DiGraph()
-    colors = []
     for level in range(0, plan.get_depth()):
         for node in plan.get_level_nodes(level):
             parent_node_label = create_label_from_node(node)
@@ -213,15 +212,16 @@ def draw_diagram(plan: Plan):
                 continue
             for child in node.next_nodes:
                 if node.total_buffer == 0 and child.total_buffer == 0:
-                    colors.append('red')
+                    color = 'red'
                 else:
-                    colors.append('black')
+                    color = 'black'
                 child_node_label = create_label_from_node(child)
                 G.add_node(child_node_label, layer=child.depth)
-                G.add_edges_from([(parent_node_label, child_node_label)])
+                G.add_edge(parent_node_label, child_node_label, color=color)
     pos = nx.multipartite_layout(G, subset_key='layer')
-    nx.draw(G, with_labels=True, font_family='monospace', edge_color=colors, pos=pos,
-            node_size=3500, node_color='skyblue', node_shape='s')
+    colors = nx.get_edge_attributes(G, 'color').values()
+    nx.draw(G, with_labels=True, font_family='monospace', pos=pos,
+            node_size=3500, node_color='skyblue', edge_color=colors, node_shape='s')
     plt.show()
 
 
