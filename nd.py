@@ -32,7 +32,7 @@ class Node:
         self.earliest_end = 0
         self.latest_start = 0
         self.latest_end = 0
-        self.depth = 0
+        self.level = 0
 
     def add_prev_node(self, node):
         if not self.prev_nodes:
@@ -140,56 +140,56 @@ class Plan:
                 node.free_buffer = self.get_min_earliest_start(
                     node.next_nodes) - node.earliest_end
 
-    def calculate_node_depths(self):
+    def calculate_node_levels(self):
         # Find all starting nodes. That is, nodes without parents.
         for node in self.nodes:
             if node.prev_nodes:
                 continue
-            node.depth = 0
-            self.calculate_child_node_depths(node, 1)
+            node.level = 0
+            self.calculate_child_node_levels(node, 1)
 
-    def calculate_child_node_depths(self, parent: Node, depth: int) -> int:
+    def calculate_child_node_levels(self, parent: Node, level: int) -> int:
         if not parent.next_nodes:
-            return depth
+            return level
         for node in parent.next_nodes:
-            if node.depth < depth:
-                node.depth = depth
-            if self.max_node_level < node.depth:
-                self.max_node_level = node.depth
-            self.calculate_child_node_depths(node, depth + 1)
+            if node.level < level:
+                node.level = level
+            if self.max_node_level < node.level:
+                self.max_node_level = node.level
+            self.calculate_child_node_levels(node, level + 1)
 
     def collect_level_nodes(self):
         for node in self.nodes:
-            list = self.level_nodes.get(node.depth, [])
+            list = self.level_nodes.get(node.level, [])
             list.append(node)
-            self.level_nodes[node.depth] = list
-            self.nodes_per_level[node.depth] = self.nodes_per_level.get(
-                node.depth, 0) + 1
+            self.level_nodes[node.level] = list
+            self.nodes_per_level[node.level] = self.nodes_per_level.get(
+                node.level, 0) + 1
 
     def collect_critical_path_nodes(self):
         self.critical_path_nodes = []
         for node in self.nodes:
             if node.total_buffer == 0:
                 self.critical_path_nodes.append(node)
-        self.critical_path_nodes.sort(key=lambda node: node.depth)
+        self.critical_path_nodes.sort(key=lambda node: node.level)
 
-    def get_level_nodes(self, depth: int) -> List[Node]:
-        return self.level_nodes[depth]
+    def get_level_nodes(self, level: int) -> List[Node]:
+        return self.level_nodes[level]
 
-    def get_nodes_per_level(self, depth: int):
-        return self.nodes_per_level.get(depth, 0)
+    def get_nodes_per_level(self, level: int):
+        return self.nodes_per_level.get(level, 0)
 
     def get_critical_path(self):
         return self.critical_path_nodes
 
-    def get_depth(self):
+    def get_level(self):
         return self.max_node_level
 
     def build(self):
         self.calculate_forward()
         self.calculate_backward()
         self.calculate_buffers()
-        self.calculate_node_depths()
+        self.calculate_node_levels()
         self.collect_level_nodes()
         self.collect_critical_path_nodes()
 
@@ -204,10 +204,10 @@ def create_label_from_node(node: Node):
 
 def draw_diagram(plan: Plan):
     G = nx.DiGraph()
-    for level in range(0, plan.get_depth()):
+    for level in range(0, plan.get_level()):
         for node in plan.get_level_nodes(level):
             parent_node_label = create_label_from_node(node)
-            G.add_node(parent_node_label, layer=node.depth)
+            G.add_node(parent_node_label, layer=node.level)
             if not node.next_nodes:
                 continue
             for child in node.next_nodes:
@@ -216,7 +216,7 @@ def draw_diagram(plan: Plan):
                 else:
                     color = 'black'
                 child_node_label = create_label_from_node(child)
-                G.add_node(child_node_label, layer=child.depth)
+                G.add_node(child_node_label, layer=child.level)
                 G.add_edge(parent_node_label, child_node_label, color=color)
     pos = nx.multipartite_layout(G, subset_key='layer')
     colors = nx.get_edge_attributes(G, 'color').values()
@@ -248,7 +248,8 @@ def main():
         description='A simple program for calculating and displaying network diagrams for project management',
     )
     arg_parser.add_argument('filename', type=str)
-    arg_parser.add_argument('-d', '--delimiter', type=str, help='Field delimiter of given CSV file')
+    arg_parser.add_argument('-d', '--delimiter', type=str,
+                            help='Field delimiter of given CSV file')
     args = arg_parser.parse_args()
     if args.delimiter:
         delimiter = args.delimiter
