@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
-from typing import List
+import csv
+import argparse
 import networkx as nx
 import matplotlib.pyplot as plt
+
+from typing import List
 
 
 class DiagramError(Exception):
@@ -216,44 +219,43 @@ def draw_diagram(plan: Plan):
                 child_node_label = create_label_from_node(child)
                 G.add_node(child_node_label, layer=child.depth)
                 G.add_edges_from([(parent_node_label, child_node_label)])
-    pos = nx.multipartite_layout(G, subset_key="layer")
+    pos = nx.multipartite_layout(G, subset_key='layer')
     nx.draw(G, with_labels=True, font_family='monospace', edge_color=colors, pos=pos,
-            node_size=3500, node_color="skyblue", node_shape="s")
+            node_size=3500, node_color='skyblue', node_shape='s')
     plt.show()
 
 
-def create_diagram(plan: Plan):
-    for i in range(0, plan.get_depth() + 1):
-        for node in plan.get_level_nodes(i):
-            print(f'{i}: |{"\t" * i}{node.name}|d:{node.duration}|es,ee:{node.earliest_start},{node.earliest_end}|ls,le:{node.latest_start},{node.latest_end}|gp,fp:{node.total_buffer},{node.free_buffer}|')
+def parse_table_row(row: List):
+    if len(row) != 3:
+        raise RuntimeError('Table rows must have 3 columns')
+    if not row[2]:
+        return row[0], int(row[1]), []
+    return row[0], int(row[1]), row[2].split(',')
 
 
-def parse_table_row(line: str):
-    fields = line.split()
-    if not fields or len(fields) < 2:
-        return None
-    if len(fields) >= 3:
-        return fields[0], int(fields[1]), fields[2].split(',')
-    return fields[0], int(fields[1]), []
-
-
-def create_plan_from_table(file) -> Plan:
+def create_plan_from_table(csv_reader) -> Plan:
     plan = Plan()
-    for line in file:
-        name, duration, predecessors = parse_table_row(line.strip())
+    for row in csv_reader:
+        name, duration, predecessors = parse_table_row(row)
         plan.add_node(name, duration, predecessors)
     plan.build()
     return plan
 
 
 def main():
-    with open('plan.txt', 'r') as f:
-        plan = create_plan_from_table(f)
-        create_diagram(plan)
+    delimiter = ' '
+    arg_parser = argparse.ArgumentParser(
+        description='A simple program for calculating and displaying network diagrams for project management',
+    )
+    arg_parser.add_argument('filename', type=str)
+    arg_parser.add_argument('-d', '--delimiter', type=str, help='Field delimiter of given CSV file')
+    args = arg_parser.parse_args()
+    if args.delimiter:
+        delimiter = args.delimiter
+    with open(args.filename, 'r') as f:
+        reader = csv.reader(f, delimiter=delimiter)
+        plan = create_plan_from_table(reader)
         draw_diagram(plan)
-    for node in plan.get_critical_path():
-        print(node.name, end='->')
-    print()
 
 
 if __name__ == '__main__':
