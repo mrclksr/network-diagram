@@ -34,4 +34,3 @@ Each node consists of 4 lines:
 The critical path is colored red.
 
 ![](images/Figure_1.png)
-![](images/Figure_2.png)
