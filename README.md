@@ -1,5 +1,9 @@
 # A Simple Project Network Diagram Generator
 
+This simple project network diagram generator calculates and displays network diagrams based on a given CSV file.
+
+A fancier PND generator for Android and iOS can be found here: https://github.com/Mar1oSch/netzplaner
+
 ## Installation
 
 ### Dependencies
